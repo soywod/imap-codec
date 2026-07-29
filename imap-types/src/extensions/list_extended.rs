@@ -9,11 +9,12 @@
 //! `\NonExistent`) are added to
 //! [`FlagNameAttribute`](crate::flag::FlagNameAttribute).
 //!
+//! The parenthesized *patterns* form of `mbox-or-pat`
+//! (e.g., `LIST "" ("foo" "bar")`) is supported via
+//! [`MboxOrPat`](crate::mailbox::MboxOrPat).
+//!
 //! # Not (yet) supported
 //!
-//! * The parenthesized *patterns* form of `mbox-or-pat`
-//!   (e.g., `LIST "" ("foo" "bar")`). Only a single mailbox pattern is
-//!   supported.
 //! * The bare (unparenthesized) `tagged-ext-simple` form of `tagged-ext-val`
 //!   (a `sequence-set` or `number` value). Only the parenthesized
 //!   `"(" [tagged-ext-comp] ")"` form is supported. This is what all

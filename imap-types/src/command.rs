@@ -34,7 +34,7 @@ use crate::{
     },
     fetch::MacroOrMessageDataItemNames,
     flag::{Flag, StoreResponse, StoreType},
-    mailbox::{ListMailbox, Mailbox},
+    mailbox::{ListMailbox, Mailbox, MboxOrPat},
     search::SearchKey,
     secret::Secret,
     sequence::SequenceSet,
@@ -762,8 +762,11 @@ pub enum CommandBody<'a> {
         selection_options: Vec<ListSelectOption<'a>>,
         /// Reference.
         reference: Mailbox<'a>,
-        /// Mailbox (wildcard).
-        mailbox_wildcard: ListMailbox<'a>,
+        /// Mailbox pattern(s) (`mbox-or-pat`).
+        ///
+        /// A single pattern for a plain `LIST`; the parenthesized multi-pattern
+        /// form requires the `LIST-EXTENDED` extension (RFC 5258).
+        mailbox_wildcard: MboxOrPat<'a>,
         /// Return options (`list-return-opts`).
         ///
         /// Control what information is returned for each matched mailbox. Empty
@@ -1698,7 +1701,7 @@ impl<'a> CommandBody<'a> {
     ) -> Result<Self, ListError<A::Error, B::Error>>
     where
         A: TryInto<Mailbox<'a>>,
-        B: TryInto<ListMailbox<'a>>,
+        B: TryInto<MboxOrPat<'a>>,
     {
         Ok(CommandBody::List {
             selection_options: Vec::new(),
@@ -1970,7 +1973,7 @@ mod tests {
         extensions::{binary::Literal8, compress::CompressionAlgorithm},
         fetch::{Macro, MacroOrMessageDataItemNames, MessageDataItemName, Part, Section},
         flag::{Flag, StoreType},
-        mailbox::{ListMailbox, Mailbox},
+        mailbox::{ListMailbox, Mailbox, MboxOrPat},
         search::SearchKey,
         secret::Secret,
         sequence::{SeqOrUid, Sequence, SequenceSet},
@@ -2230,7 +2233,7 @@ mod tests {
                 CommandBody::List {
                     selection_options: Vec::new(),
                     reference: Mailbox::Inbox,
-                    mailbox_wildcard: ListMailbox::try_from("").unwrap(),
+                    mailbox_wildcard: MboxOrPat::try_from("").unwrap(),
                     return_options: Vec::new(),
                 },
                 "LIST",

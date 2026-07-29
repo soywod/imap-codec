@@ -59,7 +59,7 @@ use crate::{
     },
     fetch::fetch_att,
     flag::{flag, flag_list},
-    mailbox::{list_mailbox, mailbox},
+    mailbox::{list_mailbox, mailbox, mbox_or_pat},
     search::search,
     sequence::sequence_set,
     status::status_att,
@@ -256,16 +256,13 @@ pub(crate) fn examine(input: &[u8]) -> IMAPResult<&[u8], CommandBody> {
 /// ```
 ///
 /// See RFC 5258.
-///
-/// Note: `mbox-or-pat` is limited to a single `list-mailbox` (the parenthesized
-///       `patterns` form is not supported).
 pub(crate) fn list(input: &[u8]) -> IMAPResult<&[u8], CommandBody> {
     let mut parser = tuple((
         tag_no_case(b"LIST"),
         opt(preceded(sp, list_select_opts)),
         preceded(sp, mailbox),
         sp,
-        list_mailbox,
+        mbox_or_pat,
         opt(preceded(sp, list_return_opts)),
     ));
 

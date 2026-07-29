@@ -77,7 +77,7 @@ use imap_types::{
         Macro, MacroOrMessageDataItemNames, MessageDataItem, MessageDataItemName, Part, Section,
     },
     flag::{Flag, FlagFetch, FlagNameAttribute, FlagPerm, StoreResponse, StoreType},
-    mailbox::{ListCharString, ListMailbox, Mailbox, MailboxOther},
+    mailbox::{ListCharString, ListMailbox, Mailbox, MailboxOther, MboxOrPat},
     response::{
         Bye, Capability, Code, CodeOther, CommandContinuationRequest, Data, Greeting, GreetingKind,
         Response, Status, StatusBody, StatusKind, Tagged,
@@ -966,6 +966,19 @@ impl EncodeIntoContext for ListMailbox<'_> {
         match self {
             ListMailbox::Token(lcs) => lcs.encode_ctx(ctx),
             ListMailbox::String(istr) => istr.encode_ctx(ctx),
+        }
+    }
+}
+
+impl EncodeIntoContext for MboxOrPat<'_> {
+    fn encode_ctx(&self, ctx: &mut EncodeContext) -> std::io::Result<()> {
+        match self {
+            MboxOrPat::Single(mailbox) => mailbox.encode_ctx(ctx),
+            MboxOrPat::Patterns(patterns) => {
+                ctx.write_all(b"(")?;
+                join_serializable(patterns.as_ref(), b" ", ctx)?;
+                ctx.write_all(b")")
+            }
         }
     }
 }

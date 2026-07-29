@@ -1,8 +1,8 @@
 use abnf_core::streaming::{dquote, sp};
 use imap_types::{
-    core::QuotedChar,
+    core::{QuotedChar, Vec1},
     flag::FlagNameAttribute,
-    mailbox::{ListCharString, ListMailbox, Mailbox},
+    mailbox::{ListCharString, ListMailbox, Mailbox, MboxOrPat},
     response::Data,
     utils::indicators::is_list_char,
 };
@@ -12,7 +12,7 @@ use nom::{
     branch::alt,
     bytes::streaming::{tag, tag_no_case, take_while1},
     combinator::{map, opt, value},
-    multi::many0,
+    multi::{many0, separated_list1},
     sequence::{delimited, preceded, terminated, tuple},
 };
 
@@ -49,6 +49,32 @@ pub(crate) fn list_mailbox(input: &[u8]) -> IMAPResult<&[u8], ListMailbox> {
         }),
         map(string, ListMailbox::String),
     ))(input)
+}
+
+/// ```abnf
+/// mbox-or-pat = list-mailbox / patterns
+/// patterns = "(" list-mailbox *(SP list-mailbox) ")"
+/// ```
+///
+/// See RFC 5258.
+///
+/// Note: A `list-mailbox` can never start with `(` (it's an atom-special, not a
+///       `list-char`, and `string` starts with `"`/`{`), so the parenthesized
+///       `patterns` form is unambiguous on its leading `(`.
+pub(crate) fn mbox_or_pat(input: &[u8]) -> IMAPResult<&[u8], MboxOrPat> {
+    alt((
+        map(patterns, MboxOrPat::Patterns),
+        map(list_mailbox, MboxOrPat::Single),
+    ))(input)
+}
+
+/// `patterns = "(" list-mailbox *(SP list-mailbox) ")"`
+fn patterns(input: &[u8]) -> IMAPResult<&[u8], Vec1<ListMailbox>> {
+    map(
+        delimited(tag(b"("), separated_list1(sp, list_mailbox), tag(b")")),
+        // Safety: `separated_list1` guarantees at least one element.
+        Vec1::unvalidated,
+    )(input)
 }
 
 /// `mailbox = "INBOX" / astring`

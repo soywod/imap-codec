@@ -264,6 +264,7 @@ mod tests {
             TaggedExtComp, TaggedExtCompItem,
         },
         flag::FlagNameAttribute,
+        mailbox::{ListMailbox, MboxOrPat},
         response::{Capability, Code, Data, Greeting, Response},
     };
 
@@ -552,6 +553,90 @@ mod tests {
                         reference: "".try_into().unwrap(),
                         mailbox_wildcard: "%".try_into().unwrap(),
                         return_options: vec![ListReturnOption::Children],
+                    },
+                )
+                .unwrap(),
+            ),
+        ]);
+    }
+
+    /// The parenthesized `patterns` form of `mbox-or-pat`, from the examples in
+    /// [RFC 5258, section 5](https://www.rfc-editor.org/rfc/rfc5258#section-5).
+    ///
+    /// Note: Patterns are given unquoted (their canonical encoding); the RFC
+    /// shows some of them quoted, which is semantically identical.
+    #[test]
+    fn test_kat_inverse_command_list_extended_patterns() {
+        fn pat(patterns: &[&str]) -> MboxOrPat<'static> {
+            MboxOrPat::Patterns(
+                Vec1::try_from(
+                    patterns
+                        .iter()
+                        .map(|p| ListMailbox::try_from(p.to_string()).unwrap())
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+            )
+        }
+
+        kat_inverse_command(&[
+            // Example 7: `BBB LIST "" ("INBOX" "Drafts" "Sent/%")`
+            (
+                b"BBB LIST \"\" (INBOX Drafts Sent/%)\r\n".as_ref(),
+                b"".as_ref(),
+                Command::new(
+                    "BBB",
+                    CommandBody::List {
+                        selection_options: vec![],
+                        reference: "".try_into().unwrap(),
+                        mailbox_wildcard: pat(&["INBOX", "Drafts", "Sent/%"]),
+                        return_options: vec![],
+                    },
+                )
+                .unwrap(),
+            ),
+            // Example 10 (a1): `a1 LIST "" ("foo" "foo/*")`
+            (
+                b"a1 LIST \"\" (foo foo/*)\r\n".as_ref(),
+                b"".as_ref(),
+                Command::new(
+                    "a1",
+                    CommandBody::List {
+                        selection_options: vec![],
+                        reference: "".try_into().unwrap(),
+                        mailbox_wildcard: pat(&["foo", "foo/*"]),
+                        return_options: vec![],
+                    },
+                )
+                .unwrap(),
+            ),
+            // Example 11 (a3.1): `a3.1 LIST "" (% music/rock)`
+            (
+                b"a3.1 LIST \"\" (% music/rock)\r\n".as_ref(),
+                b"".as_ref(),
+                Command::new(
+                    "a3.1",
+                    CommandBody::List {
+                        selection_options: vec![],
+                        reference: "".try_into().unwrap(),
+                        mailbox_wildcard: pat(&["%", "music/rock"]),
+                        return_options: vec![],
+                    },
+                )
+                .unwrap(),
+            ),
+            // Single-element parenthesized patterns list (still the Patterns
+            // form, distinct from the bare single-pattern form).
+            (
+                b"z LIST \"\" (foo)\r\n".as_ref(),
+                b"".as_ref(),
+                Command::new(
+                    "z",
+                    CommandBody::List {
+                        selection_options: vec![],
+                        reference: "".try_into().unwrap(),
+                        mailbox_wildcard: pat(&["foo"]),
+                        return_options: vec![],
                     },
                 )
                 .unwrap(),

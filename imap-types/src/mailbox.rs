@@ -9,7 +9,7 @@ use bounded_static_derive::ToStatic;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    core::{AString, IString, impl_try_from},
+    core::{AString, IString, Vec1, impl_try_from},
     error::{ValidationError, ValidationErrorKind},
     mailbox::error::MailboxOtherError,
     utils::indicators::is_list_char,
@@ -127,6 +127,54 @@ impl TryFrom<String> for ListMailbox<'_> {
         }
 
         Ok(ListMailbox::String(s.try_into()?))
+    }
+}
+
+/// The mailbox pattern argument of the extended `LIST` command (`mbox-or-pat`).
+///
+/// ```abnf
+/// mbox-or-pat = list-mailbox / patterns
+/// patterns = "(" list-mailbox *(SP list-mailbox) ")"
+/// ```
+///
+/// A plain (non-extended) `LIST` command always uses the [`Single`] form. The
+/// parenthesized [`Patterns`] form requires the `LIST-EXTENDED` extension.
+///
+/// See [RFC 5258, section 3](https://www.rfc-editor.org/rfc/rfc5258#section-3).
+///
+/// [`Single`]: MboxOrPat::Single
+/// [`Patterns`]: MboxOrPat::Patterns
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", content = "content"))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, ToStatic)]
+pub enum MboxOrPat<'a> {
+    /// A single, unparenthesized mailbox pattern (`list-mailbox`).
+    Single(ListMailbox<'a>),
+
+    /// A parenthesized, non-empty list of mailbox patterns (`patterns`).
+    Patterns(Vec1<ListMailbox<'a>>),
+}
+
+impl<'a> From<ListMailbox<'a>> for MboxOrPat<'a> {
+    fn from(mailbox: ListMailbox<'a>) -> Self {
+        MboxOrPat::Single(mailbox)
+    }
+}
+
+impl<'a> TryFrom<&'a str> for MboxOrPat<'a> {
+    type Error = ValidationError;
+
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        Ok(MboxOrPat::Single(ListMailbox::try_from(s)?))
+    }
+}
+
+impl TryFrom<String> for MboxOrPat<'_> {
+    type Error = ValidationError;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        Ok(MboxOrPat::Single(ListMailbox::try_from(s)?))
     }
 }
 
