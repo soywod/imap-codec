@@ -463,4 +463,185 @@ mod tests {
             .unwrap(),
         )]);
     }
+
+    /// Extended `LIST` commands taken from the examples in
+    /// [RFC 5258, section 5](https://www.rfc-editor.org/rfc/rfc5258#section-5).
+    ///
+    /// Note: The single-pattern (`mbox-or-pat = list-mailbox`) form is used
+    /// here; the parenthesized `patterns` form (e.g., example 7) is not yet
+    /// supported. Wildcards/mailboxes are given unquoted (their canonical
+    /// encoding), which is semantically identical to the quoted forms shown in
+    /// the RFC.
+    #[test]
+    fn test_kat_inverse_command_list_extended_rfc5258_examples() {
+        kat_inverse_command(&[
+            // Example 2: `A02 LIST (SUBSCRIBED) "" "*"`
+            (
+                b"A02 LIST (SUBSCRIBED) \"\" *\r\n".as_ref(),
+                b"".as_ref(),
+                Command::new(
+                    "A02",
+                    CommandBody::List {
+                        selection_options: vec![ListSelectOption::Subscribed],
+                        reference: "".try_into().unwrap(),
+                        mailbox_wildcard: "*".try_into().unwrap(),
+                        return_options: vec![],
+                    },
+                )
+                .unwrap(),
+            ),
+            // Example 4: `A04 LIST (REMOTE) "" "%" RETURN (CHILDREN)`
+            (
+                b"A04 LIST (REMOTE) \"\" % RETURN (CHILDREN)\r\n".as_ref(),
+                b"".as_ref(),
+                Command::new(
+                    "A04",
+                    CommandBody::List {
+                        selection_options: vec![ListSelectOption::Remote],
+                        reference: "".try_into().unwrap(),
+                        mailbox_wildcard: "%".try_into().unwrap(),
+                        return_options: vec![ListReturnOption::Children],
+                    },
+                )
+                .unwrap(),
+            ),
+            // Example 5: `A05 LIST (REMOTE SUBSCRIBED) "" "*"`
+            (
+                b"A05 LIST (REMOTE SUBSCRIBED) \"\" *\r\n".as_ref(),
+                b"".as_ref(),
+                Command::new(
+                    "A05",
+                    CommandBody::List {
+                        selection_options: vec![
+                            ListSelectOption::Remote,
+                            ListSelectOption::Subscribed,
+                        ],
+                        reference: "".try_into().unwrap(),
+                        mailbox_wildcard: "*".try_into().unwrap(),
+                        return_options: vec![],
+                    },
+                )
+                .unwrap(),
+            ),
+            // Example 6: `A06 LIST (REMOTE) "" "*" RETURN (SUBSCRIBED)`
+            (
+                b"A06 LIST (REMOTE) \"\" * RETURN (SUBSCRIBED)\r\n".as_ref(),
+                b"".as_ref(),
+                Command::new(
+                    "A06",
+                    CommandBody::List {
+                        selection_options: vec![ListSelectOption::Remote],
+                        reference: "".try_into().unwrap(),
+                        mailbox_wildcard: "*".try_into().unwrap(),
+                        return_options: vec![ListReturnOption::Subscribed],
+                    },
+                )
+                .unwrap(),
+            ),
+            // Example 8C / 10 (a3): `LIST (SUBSCRIBED RECURSIVEMATCH) "" "%" RETURN (CHILDREN)`
+            (
+                b"C04 LIST (SUBSCRIBED RECURSIVEMATCH) \"\" % RETURN (CHILDREN)\r\n".as_ref(),
+                b"".as_ref(),
+                Command::new(
+                    "C04",
+                    CommandBody::List {
+                        selection_options: vec![
+                            ListSelectOption::Subscribed,
+                            ListSelectOption::RecursiveMatch,
+                        ],
+                        reference: "".try_into().unwrap(),
+                        mailbox_wildcard: "%".try_into().unwrap(),
+                        return_options: vec![ListReturnOption::Children],
+                    },
+                )
+                .unwrap(),
+            ),
+        ]);
+    }
+
+    /// Extended `LIST` responses taken from the examples in
+    /// [RFC 5258, section 5](https://www.rfc-editor.org/rfc/rfc5258#section-5).
+    ///
+    /// Note: Mailbox names are given unquoted (their canonical encoding), and
+    /// `CHILDINFO` is unquoted per the `childinfo-extended-item` ABNF (only the
+    /// inner `list-select-base-opt-quoted` is `DQUOTE`-wrapped).
+    #[test]
+    fn test_kat_inverse_response_list_extended_rfc5258_examples() {
+        kat_inverse_response(&[
+            // Example 1: `* LIST (\Marked \NoInferiors) "/" "inbox"`
+            (
+                b"* LIST (\\Marked \\NoInferiors) \"/\" inbox\r\n".as_ref(),
+                b"".as_ref(),
+                Response::Data(Data::List {
+                    items: vec![FlagNameAttribute::Marked, FlagNameAttribute::Noinferiors],
+                    delimiter: Some(QuotedChar::try_from('/').unwrap()),
+                    mailbox: "inbox".try_into().unwrap(),
+                    extended_items: vec![],
+                }),
+            ),
+            // Example 2: `* LIST (\Subscribed \NonExistent) "/" "Fruit/Peach"`
+            (
+                b"* LIST (\\Subscribed \\NonExistent) \"/\" Fruit/Peach\r\n".as_ref(),
+                b"".as_ref(),
+                Response::Data(Data::List {
+                    items: vec![
+                        FlagNameAttribute::Subscribed,
+                        FlagNameAttribute::NonExistent,
+                    ],
+                    delimiter: Some(QuotedChar::try_from('/').unwrap()),
+                    mailbox: "Fruit/Peach".try_into().unwrap(),
+                    extended_items: vec![],
+                }),
+            ),
+            // Example 3: `* LIST (\HasNoChildren) "/" "Tofu"`
+            (
+                b"* LIST (\\HasNoChildren) \"/\" Tofu\r\n".as_ref(),
+                b"".as_ref(),
+                Response::Data(Data::List {
+                    items: vec![FlagNameAttribute::HasNoChildren],
+                    delimiter: Some(QuotedChar::try_from('/').unwrap()),
+                    mailbox: "Tofu".try_into().unwrap(),
+                    extended_items: vec![],
+                }),
+            ),
+            // Example 4: `* LIST (\HasChildren \Remote) "/" "Meat"`
+            (
+                b"* LIST (\\HasChildren \\Remote) \"/\" Meat\r\n".as_ref(),
+                b"".as_ref(),
+                Response::Data(Data::List {
+                    items: vec![FlagNameAttribute::HasChildren, FlagNameAttribute::Remote],
+                    delimiter: Some(QuotedChar::try_from('/').unwrap()),
+                    mailbox: "Meat".try_into().unwrap(),
+                    extended_items: vec![],
+                }),
+            ),
+            // Example 11: `* LIST (\NonExistent \HasChildren) "/" music`
+            (
+                b"* LIST (\\NonExistent \\HasChildren) \"/\" music\r\n".as_ref(),
+                b"".as_ref(),
+                Response::Data(Data::List {
+                    items: vec![
+                        FlagNameAttribute::NonExistent,
+                        FlagNameAttribute::HasChildren,
+                    ],
+                    delimiter: Some(QuotedChar::try_from('/').unwrap()),
+                    mailbox: "music".try_into().unwrap(),
+                    extended_items: vec![],
+                }),
+            ),
+            // Example 9 (D03): `* LIST (\Subscribed) "/" eps2 ("CHILDINFO" ("SUBSCRIBED"))`
+            (
+                b"* LIST (\\Subscribed) \"/\" eps2 (CHILDINFO (\"SUBSCRIBED\"))\r\n".as_ref(),
+                b"".as_ref(),
+                Response::Data(Data::List {
+                    items: vec![FlagNameAttribute::Subscribed],
+                    delimiter: Some(QuotedChar::try_from('/').unwrap()),
+                    mailbox: "eps2".try_into().unwrap(),
+                    extended_items: vec![MboxListExtendedItem::ChildInfo(Vec1::from(
+                        ChildInfoSelectOption::Subscribed,
+                    ))],
+                }),
+            ),
+        ]);
+    }
 }
