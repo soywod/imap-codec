@@ -15,7 +15,11 @@ use crate::{
         Text, Vec1, Vec2,
     },
     datetime::{DateTime, NaiveDate},
-    extensions::{enable::CapabilityEnable, quota::Resource},
+    extensions::{
+        enable::CapabilityEnable,
+        list_extended::{TaggedExtComp, TaggedExtCompItem},
+        quota::Resource,
+    },
     flag::{Flag, FlagNameAttribute},
     mailbox::{ListCharString, Mailbox, MailboxOther},
     response::{
@@ -214,6 +218,49 @@ impl<'a> Arbitrary<'a> for CodeOther<'a> {
         // `CodeOther` is a fallback and should usually not be created.
         Ok(CodeOther::unvalidated(b"IMAP-CODEC-CODE-OTHER>".as_ref()))
     }
+}
+
+impl<'a> Arbitrary<'a> for TaggedExtComp<'a> {
+    fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        #[cfg(not(feature = "arbitrary_simplified"))]
+        return arbitrary_tagged_ext_comp_limited(u, 3);
+        #[cfg(feature = "arbitrary_simplified")]
+        return arbitrary_tagged_ext_comp_leaf(u);
+    }
+}
+
+#[cfg(not(feature = "arbitrary_simplified"))]
+fn arbitrary_tagged_ext_comp_limited<'a>(
+    u: &mut Unstructured<'a>,
+    depth: u8,
+) -> arbitrary::Result<TaggedExtComp<'a>> {
+    if depth == 0 {
+        return arbitrary_tagged_ext_comp_leaf(u);
+    }
+
+    // A non-empty, space-separated sequence of items.
+    let len = u.arbitrary_len::<AString>()?.clamp(1, 3);
+    let mut items = Vec::with_capacity(len);
+
+    for _ in 0..len {
+        let item = if bool::arbitrary(u)? {
+            TaggedExtCompItem::Parenthesized(arbitrary_tagged_ext_comp_limited(u, depth - 1)?)
+        } else {
+            TaggedExtCompItem::AString(AString::arbitrary(u)?)
+        };
+
+        items.push(item);
+    }
+
+    Ok(TaggedExtComp(Vec1::try_from(items).unwrap()))
+}
+
+fn arbitrary_tagged_ext_comp_leaf<'a>(
+    u: &mut Unstructured<'a>,
+) -> arbitrary::Result<TaggedExtComp<'a>> {
+    Ok(TaggedExtComp(Vec1::from(TaggedExtCompItem::AString(
+        AString::arbitrary(u)?,
+    ))))
 }
 
 impl<'a> Arbitrary<'a> for SearchKey<'a> {

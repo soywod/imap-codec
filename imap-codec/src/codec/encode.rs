@@ -66,7 +66,13 @@ use imap_types::{
     },
     datetime::{DateTime, NaiveDate},
     envelope::{Address, Envelope},
-    extensions::idle::IdleDone,
+    extensions::{
+        idle::IdleDone,
+        list_extended::{
+            ChildInfoSelectOption, ListReturnOption, ListReturnOptionExtension, ListSelectOption,
+            ListSelectOptionExtension, MboxListExtendedItem, TaggedExtComp, TaggedExtCompItem,
+        },
+    },
     fetch::{
         Macro, MacroOrMessageDataItemNames, MessageDataItem, MessageDataItemName, Part, Section,
     },
@@ -386,13 +392,31 @@ impl EncodeIntoContext for CommandBody<'_> {
                 mailbox.encode_ctx(ctx)
             }
             CommandBody::List {
+                selection_options,
                 reference,
                 mailbox_wildcard,
+                return_options,
             } => {
-                ctx.write_all(b"LIST ")?;
+                ctx.write_all(b"LIST")?;
+
+                if !selection_options.is_empty() {
+                    ctx.write_all(b" (")?;
+                    join_serializable(selection_options, b" ", ctx)?;
+                    ctx.write_all(b")")?;
+                }
+
+                ctx.write_all(b" ")?;
                 reference.encode_ctx(ctx)?;
                 ctx.write_all(b" ")?;
-                mailbox_wildcard.encode_ctx(ctx)
+                mailbox_wildcard.encode_ctx(ctx)?;
+
+                if !return_options.is_empty() {
+                    ctx.write_all(b" RETURN (")?;
+                    join_serializable(return_options, b" ", ctx)?;
+                    ctx.write_all(b")")?;
+                }
+
+                Ok(())
             }
             CommandBody::Lsub {
                 reference,
@@ -742,6 +766,109 @@ impl EncodeIntoContext for SelectParameter {
                 }
 
                 write!(ctx, ")")
+            }
+        }
+    }
+}
+
+impl EncodeIntoContext for ListSelectOption<'_> {
+    fn encode_ctx(&self, ctx: &mut EncodeContext) -> std::io::Result<()> {
+        match self {
+            ListSelectOption::Subscribed => ctx.write_all(b"SUBSCRIBED"),
+            ListSelectOption::Remote => ctx.write_all(b"REMOTE"),
+            ListSelectOption::RecursiveMatch => ctx.write_all(b"RECURSIVEMATCH"),
+            ListSelectOption::Extension(extension) => extension.encode_ctx(ctx),
+        }
+    }
+}
+
+impl EncodeIntoContext for ListReturnOption<'_> {
+    fn encode_ctx(&self, ctx: &mut EncodeContext) -> std::io::Result<()> {
+        match self {
+            ListReturnOption::Subscribed => ctx.write_all(b"SUBSCRIBED"),
+            ListReturnOption::Children => ctx.write_all(b"CHILDREN"),
+            ListReturnOption::Extension(extension) => extension.encode_ctx(ctx),
+        }
+    }
+}
+
+impl EncodeIntoContext for ListSelectOptionExtension<'_> {
+    fn encode_ctx(&self, ctx: &mut EncodeContext) -> std::io::Result<()> {
+        self.tag.inner().encode_ctx(ctx)?;
+
+        if let Some(value) = &self.value {
+            ctx.write_all(b" (")?;
+            value.encode_ctx(ctx)?;
+            ctx.write_all(b")")?;
+        }
+
+        Ok(())
+    }
+}
+
+impl EncodeIntoContext for ListReturnOptionExtension<'_> {
+    fn encode_ctx(&self, ctx: &mut EncodeContext) -> std::io::Result<()> {
+        self.tag.inner().encode_ctx(ctx)?;
+
+        if let Some(value) = &self.value {
+            ctx.write_all(b" (")?;
+            value.encode_ctx(ctx)?;
+            ctx.write_all(b")")?;
+        }
+
+        Ok(())
+    }
+}
+
+impl EncodeIntoContext for TaggedExtComp<'_> {
+    fn encode_ctx(&self, ctx: &mut EncodeContext) -> std::io::Result<()> {
+        join_serializable(self.0.as_ref(), b" ", ctx)
+    }
+}
+
+impl EncodeIntoContext for TaggedExtCompItem<'_> {
+    fn encode_ctx(&self, ctx: &mut EncodeContext) -> std::io::Result<()> {
+        match self {
+            TaggedExtCompItem::AString(astring) => astring.encode_ctx(ctx),
+            TaggedExtCompItem::Parenthesized(comp) => {
+                ctx.write_all(b"(")?;
+                comp.encode_ctx(ctx)?;
+                ctx.write_all(b")")
+            }
+        }
+    }
+}
+
+impl EncodeIntoContext for ChildInfoSelectOption {
+    fn encode_ctx(&self, ctx: &mut EncodeContext) -> std::io::Result<()> {
+        match self {
+            ChildInfoSelectOption::Subscribed => ctx.write_all(b"SUBSCRIBED"),
+        }
+    }
+}
+
+impl EncodeIntoContext for MboxListExtendedItem<'_> {
+    fn encode_ctx(&self, ctx: &mut EncodeContext) -> std::io::Result<()> {
+        match self {
+            MboxListExtendedItem::ChildInfo(options) => {
+                ctx.write_all(b"CHILDINFO (")?;
+                for (i, option) in options.as_ref().iter().enumerate() {
+                    if i > 0 {
+                        ctx.write_all(b" ")?;
+                    }
+                    ctx.write_all(b"\"")?;
+                    option.encode_ctx(ctx)?;
+                    ctx.write_all(b"\"")?;
+                }
+                ctx.write_all(b")")
+            }
+            MboxListExtendedItem::Other { tag, value } => {
+                tag.inner().encode_ctx(ctx)?;
+                ctx.write_all(b" (")?;
+                if let Some(value) = value {
+                    value.encode_ctx(ctx)?;
+                }
+                ctx.write_all(b")")
             }
         }
     }
@@ -1439,6 +1566,7 @@ impl EncodeIntoContext for Data<'_> {
                 items,
                 delimiter,
                 mailbox,
+                extended_items,
             } => {
                 ctx.write_all(b"* LIST (")?;
                 join_serializable(items, b" ", ctx)?;
@@ -1453,6 +1581,12 @@ impl EncodeIntoContext for Data<'_> {
                 }
                 ctx.write_all(b" ")?;
                 mailbox.encode_ctx(ctx)?;
+
+                if !extended_items.is_empty() {
+                    ctx.write_all(b" (")?;
+                    join_serializable(extended_items, b" ", ctx)?;
+                    ctx.write_all(b")")?;
+                }
             }
             Data::Lsub {
                 items,

@@ -6,6 +6,7 @@ pub mod enable;
 #[cfg(feature = "ext_id")]
 pub mod id;
 pub mod idle;
+pub mod list_extended;
 pub mod literal;
 #[cfg(feature = "ext_metadata")]
 pub mod metadata;

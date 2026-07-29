@@ -50,6 +50,7 @@ use crate::{
         compress::compress,
         enable::enable,
         idle::idle,
+        list_extended::{list_return_opts, list_select_opts},
         r#move::r#move,
         quota::{getquota, getquotaroot, setquota},
         sort::sort,
@@ -249,17 +250,35 @@ pub(crate) fn examine(input: &[u8]) -> IMAPResult<&[u8], CommandBody> {
     ))
 }
 
-/// `list = "LIST" SP mailbox SP list-mailbox`
+/// ```abnf
+/// list = "LIST" [SP list-select-opts] SP mailbox SP mbox-or-pat
+///        [SP list-return-opts]
+/// ```
+///
+/// See RFC 5258.
+///
+/// Note: `mbox-or-pat` is limited to a single `list-mailbox` (the parenthesized
+///       `patterns` form is not supported).
 pub(crate) fn list(input: &[u8]) -> IMAPResult<&[u8], CommandBody> {
-    let mut parser = tuple((tag_no_case(b"LIST "), mailbox, sp, list_mailbox));
+    let mut parser = tuple((
+        tag_no_case(b"LIST"),
+        opt(preceded(sp, list_select_opts)),
+        preceded(sp, mailbox),
+        sp,
+        list_mailbox,
+        opt(preceded(sp, list_return_opts)),
+    ));
 
-    let (remaining, (_, reference, _, mailbox_wildcard)) = parser(input)?;
+    let (remaining, (_, selection_options, reference, _, mailbox_wildcard, return_options)) =
+        parser(input)?;
 
     Ok((
         remaining,
         CommandBody::List {
+            selection_options: selection_options.unwrap_or_default(),
             reference,
             mailbox_wildcard,
+            return_options: return_options.unwrap_or_default(),
         },
     ))
 }

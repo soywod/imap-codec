@@ -112,6 +112,7 @@
 //! | IMAP4 UIDPLUS extension ([RFC 2359], [RFC 4315])                                                        |
 //! | IMAP4 Binary Content Extension ([RFC 3516])                                                             |
 //! | Internet Message Access Protocol - SORT and THREAD Extensions ([RFC 5256], [RFC 5957])                  |
+//! | Internet Message Access Protocol version 4 - LIST Command Extensions ([RFC 5258])                       |
 //!
 //! # Features
 //!
@@ -161,6 +162,7 @@
 //! [RFC 4978]: https://datatracker.ietf.org/doc/html/rfc4978
 //! [RFC 5161]: https://datatracker.ietf.org/doc/html/rfc5161
 //! [RFC 5256]: https://datatracker.ietf.org/doc/html/rfc5256
+//! [RFC 5258]: https://datatracker.ietf.org/doc/html/rfc5258
 //! [RFC 5464]: https://datatracker.ietf.org/doc/html/rfc5464
 //! [RFC 5957]: https://datatracker.ietf.org/doc/html/rfc5957
 //! [RFC 6851]: https://datatracker.ietf.org/doc/html/rfc6851

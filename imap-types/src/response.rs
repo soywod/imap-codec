@@ -32,6 +32,7 @@ use crate::{
     extensions::{
         compress::CompressionAlgorithm,
         enable::CapabilityEnable,
+        list_extended::MboxListExtendedItem,
         quota::{QuotaGet, Resource},
         sort::SortAlgorithm,
         thread::{Thread, ThreadingAlgorithm},
@@ -394,6 +395,12 @@ pub enum Data<'a> {
         delimiter: Option<QuotedChar>,
         /// Name
         mailbox: Mailbox<'a>,
+        /// Extended data items (`mbox-list-extended`, `LIST-EXTENDED`, RFC 5258).
+        ///
+        /// E.g., `CHILDINFO`. Empty when no extended data is present.
+        ///
+        /// See [RFC 5258](https://www.rfc-editor.org/rfc/rfc5258).
+        extended_items: Vec<MboxListExtendedItem<'a>>,
     },
 
     /// ### 7.2.3. LSUB Response
@@ -1106,6 +1113,8 @@ pub enum Capability<'a> {
     Binary,
     /// UIDPLUS extension (RFC 4351)
     UidPlus,
+    /// LIST-EXTENDED extension (RFC 5258)
+    ListExtended,
     /// CONDSTORE extension (RFC 7162)
     #[cfg(feature = "ext_condstore_qresync")]
     CondStore,
@@ -1155,6 +1164,7 @@ impl Display for Capability<'_> {
             Self::MetadataServer => write!(f, "METADATA-SERVER"),
             Self::Binary => write!(f, "BINARY"),
             Self::UidPlus => write!(f, "UIDPLUS"),
+            Self::ListExtended => write!(f, "LIST-EXTENDED"),
             #[cfg(feature = "ext_condstore_qresync")]
             Self::CondStore => write!(f, "CONDSTORE"),
             #[cfg(feature = "ext_condstore_qresync")]
@@ -1225,6 +1235,7 @@ impl<'a> From<Atom<'a>> for Capability<'a> {
             #[cfg(feature = "ext_metadata")]
             "metadata-server" => Self::MetadataServer,
             "binary" => Self::Binary,
+            "list-extended" => Self::ListExtended,
             "unselect" => Self::Unselect,
             #[cfg(feature = "ext_condstore_qresync")]
             "condstore" => Self::CondStore,

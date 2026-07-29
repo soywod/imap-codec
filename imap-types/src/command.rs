@@ -24,8 +24,13 @@ use crate::{
     core::{AString, Charset, Literal, Tag, Vec1},
     datetime::DateTime,
     extensions::{
-        binary::LiteralOrLiteral8, compress::CompressionAlgorithm, enable::CapabilityEnable,
-        quota::QuotaSet, sort::SortCriterion, thread::ThreadingAlgorithm,
+        binary::LiteralOrLiteral8,
+        compress::CompressionAlgorithm,
+        enable::CapabilityEnable,
+        list_extended::{ListReturnOption, ListSelectOption},
+        quota::QuotaSet,
+        sort::SortCriterion,
+        thread::ThreadingAlgorithm,
     },
     fetch::MacroOrMessageDataItemNames,
     flag::{Flag, StoreResponse, StoreType},
@@ -748,10 +753,24 @@ pub enum CommandBody<'a> {
     /// failure; it is not relevant whether the user's real INBOX resides
     /// on this or some other server.
     List {
+        /// Selection options (`list-select-opts`).
+        ///
+        /// Determine which mailbox names are selected by `LIST`. Empty for a
+        /// non-extended `LIST` command.
+        ///
+        /// See [RFC 5258](https://www.rfc-editor.org/rfc/rfc5258).
+        selection_options: Vec<ListSelectOption<'a>>,
         /// Reference.
         reference: Mailbox<'a>,
         /// Mailbox (wildcard).
         mailbox_wildcard: ListMailbox<'a>,
+        /// Return options (`list-return-opts`).
+        ///
+        /// Control what information is returned for each matched mailbox. Empty
+        /// for a non-extended `LIST` command (no `RETURN (...)`).
+        ///
+        /// See [RFC 5258](https://www.rfc-editor.org/rfc/rfc5258).
+        return_options: Vec<ListReturnOption<'a>>,
     },
 
     /// ### 6.3.9.  LSUB Command
@@ -1682,8 +1701,10 @@ impl<'a> CommandBody<'a> {
         B: TryInto<ListMailbox<'a>>,
     {
         Ok(CommandBody::List {
+            selection_options: Vec::new(),
             reference: reference.try_into().map_err(ListError::Reference)?,
             mailbox_wildcard: mailbox_wildcard.try_into().map_err(ListError::Mailbox)?,
+            return_options: Vec::new(),
         })
     }
 
@@ -2207,8 +2228,10 @@ mod tests {
             ),
             (
                 CommandBody::List {
+                    selection_options: Vec::new(),
                     reference: Mailbox::Inbox,
                     mailbox_wildcard: ListMailbox::try_from("").unwrap(),
+                    return_options: Vec::new(),
                 },
                 "LIST",
             ),

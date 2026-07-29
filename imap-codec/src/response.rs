@@ -517,6 +517,7 @@ mod tests {
                     items: vec![FlagNameAttribute::Noselect],
                     delimiter: Some(QuotedChar::try_from('/').unwrap()),
                     mailbox: "bbb".try_into().unwrap(),
+                    extended_items: Vec::new(),
                 }),
             ),
             (

@@ -26,6 +26,7 @@ use crate::{
     core::{astring, nil, number, nz_number, quoted_char, string},
     decode::IMAPResult,
     extensions::{
+        list_extended::list_extended_suffix,
         quota::{quota_response, quotaroot_response},
         thread::thread_data,
     },
@@ -88,11 +89,15 @@ pub(crate) fn mailbox_data(input: &[u8]) -> IMAPResult<&[u8], Data> {
     alt((
         map(preceded(tag_no_case(b"FLAGS "), flag_list), Data::Flags),
         map(
-            preceded(tag_no_case(b"LIST "), mailbox_list),
-            |(items, delimiter, mailbox)| Data::List {
+            preceded(
+                tag_no_case(b"LIST "),
+                tuple((mailbox_list, list_extended_suffix)),
+            ),
+            |((items, delimiter, mailbox), extended_items)| Data::List {
                 items: items.unwrap_or_default(),
                 mailbox,
                 delimiter,
+                extended_items,
             },
         ),
         map(
